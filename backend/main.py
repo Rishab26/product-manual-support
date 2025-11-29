@@ -20,9 +20,7 @@ class ManualRequest(BaseModel):
 @app.post("/generate-manual")
 async def generate_manual(request: ManualRequest):
     result = await manual_agent.run(request.topic)
-    print(f"Result type: {type(result)}")
-    print(f"Result dir: {dir(result)}")
-    return {"manual": result.data}
+    return {"manual": result.output}
 
 @app.get("/health")
 async def health():
