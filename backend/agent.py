@@ -42,17 +42,25 @@ Use valid Markdown formatting.
 IMPORTANT: Structure each feature as a level 2 heading (## Feature Name).
 # Output Structure
 Structure the usage manual into sections, like you would normally expect.
-Each section should describe one feature of the product.
 
-For each section and feature provide:
+IMPORTANT: Select and present ONLY the 5 most relevant and important features from the input.
+Prioritize the features that are most essential for users to understand and use the product effectively.
+
+The first section should be an introduction/overview without a feature-specific focus.
+Then present the 5 most relevant features as separate sections.
+
+For each feature section provide:
 1. A level 2 heading (## Feature Name)
 2. A description of the feature with detailed text
 3. A schematic showing the feature in a simple line only sketch (use the generate_image tool)
 
-CRITICAL: You MUST use the generate_image tool for EVERY section to create a schematic.
-Each section MUST have both text description AND an image.
+CRITICAL: You MUST use the generate_image tool for EVERY feature section (not the intro) to create a schematic.
+Each feature section MUST have both text description AND an image.
 
 Example structure:
+## Introduction
+Overview of the product...
+
 ## Feature Name
 Detailed description of the feature...
 - How it works
