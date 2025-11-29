@@ -1,43 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import './App.css'
 import ReactMarkdown from 'react-markdown'
-import {
-  Mic,
-  Video,
-  Camera,
-  Upload,
-  X,
-  FileText,
-  ArrowRight,
-  RotateCcw,
-  StopCircle
-} from 'lucide-react'
-
-const LOADING_SENTENCES = [
-  "Consulting the oracle of knowledge...",
-  "Summoning the spirits of clarity...",
-  "Weaving words into wisdom...",
-  "Decoding the matrix of instructions...",
-  "Polishing the gems of guidance...",
-  "Constructing the pillars of understanding...",
-  "Filtering the noise, keeping the signal...",
-  "Translating thoughts into actions...",
-  "Harmonizing the elements of the manual...",
-  "Preparing the blueprint for success..."
-]
 
 function App() {
-  // Stages: 'input', 'processing', 'result'
-  const [stage, setStage] = useState('input')
-
   const [topic, setTopic] = useState('')
   const [manual, setManual] = useState('')
+  const [images, setImages] = useState([])
+  const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState([])
-  const [loadingText, setLoadingText] = useState(LOADING_SENTENCES[0])
-
-  // Media State
   const [isRecording, setIsRecording] = useState(false)
-  const [recordingType, setRecordingType] = useState(null) // 'audio', 'video'
+  const [recordingType, setRecordingType] = useState(null)
   const [cameraActive, setCameraActive] = useState(false)
 
   const mediaRecorderRef = useRef(null)
@@ -46,44 +18,14 @@ function App() {
   const streamRef = useRef(null)
   const chunksRef = useRef([])
 
-  // Abort Controller for cancellation
-  const abortControllerRef = useRef(null)
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopMediaStream()
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
-
-  // Cycle loading sentences
-  useEffect(() => {
-    let interval;
-    if (stage === 'processing') {
-      setLoadingText(LOADING_SENTENCES[0])
-      let index = 0;
-      interval = setInterval(() => {
-        index = (index + 1) % LOADING_SENTENCES.length;
-        setLoadingText(LOADING_SENTENCES[index]);
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [stage]);
-
   const handleFileChange = (e) => {
-    if (e.target.files) {
-      setFiles(prev => [...prev, ...Array.from(e.target.files)])
-    }
+    setFiles(prev => [...prev, ...e.target.files])
   }
 
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Audio Recording
   const startAudioRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -112,7 +54,6 @@ function App() {
     }
   }
 
-  // Video Recording
   const startVideoRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -148,10 +89,11 @@ function App() {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      setRecordingType(null)
     }
   }
 
-  // Photo Capture
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true })
@@ -177,11 +119,10 @@ function App() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
       canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
-          setFiles(prev => [...prev, file])
-          stopMediaStream()
-        }
+        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+        setFiles(prev => [...prev, file])
+        stopMediaStream()
+        setCameraActive(false)
       }, 'image/jpeg')
     }
   }
@@ -200,30 +141,22 @@ function App() {
   }
 
   const generateManual = async () => {
-    if (!topic.trim() && files.length === 0) {
-      alert('Please enter a topic or upload/record media to generate a manual.')
-      return
-    }
-
-    setStage('processing')
+    setLoading(true)
     setManual('')
-
-    // Create new AbortController
-    abortControllerRef.current = new AbortController()
+    setImages([])
 
     try {
-      let response;
       const formData = new FormData()
       formData.append('topic', topic)
+      formData.append('generate_images', 'true')
 
       files.forEach(file => {
         formData.append('files', file)
       })
 
-      response = await fetch('/generate-manual', {
+      const response = await fetch('http://127.0.0.1:8000/generate-manual', {
         method: 'POST',
         body: formData,
-        signal: abortControllerRef.current.signal
       })
 
       if (!response.ok) {
@@ -231,175 +164,104 @@ function App() {
       }
 
       const data = await response.json()
-      setManual(data.manual)
-      setStage('result')
+      setManual(data.markdown)
+      setImages(data.images || [])
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Generation cancelled')
-        // Stay in input stage or handle as needed, but we usually reset to input on cancel
-        setStage('input')
-      } else {
-        console.error('Error generating manual:', error)
-        alert('Error generating manual. Please try again.')
-        setStage('input')
-      }
+      console.error('Error generating manual:', error)
+      setManual('Error generating manual. Please try again.')
     } finally {
-      abortControllerRef.current = null
+      setLoading(false)
     }
   }
-
-  const cancelGeneration = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-  }
-
-  const resetApp = () => {
-    setTopic('')
-    setFiles([])
-    setManual('')
-    setStage('input')
-  }
-
-  const handleKeyDown = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      generateManual()
-    }
-  }
-
-  // Render Helpers
-  const renderInputStage = () => (
-    <div className="input-stage fade-in">
-      <div className="topic-input-container">
-        <input
-          type="text"
-          className="topic-input"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="What do you want to learn?"
-          autoFocus
-        />
-      </div>
-
-      <div className="media-grid">
-        <label className="media-btn">
-          <Upload />
-          <span>Upload</span>
-          <input
-            type="file"
-            multiple
-            onChange={handleFileChange}
-            accept="video/*,audio/*,image/*,.pdf,.txt"
-            style={{ display: 'none' }}
-          />
-        </label>
-
-        <button className="media-btn" onClick={startAudioRecording}>
-          <Mic />
-          <span>Record Audio</span>
-        </button>
-
-        <button className="media-btn" onClick={startVideoRecording}>
-          <Video />
-          <span>Record Video</span>
-        </button>
-
-        <button className="media-btn" onClick={startCamera}>
-          <Camera />
-          <span>Take Photo</span>
-        </button>
-      </div>
-
-      {files.length > 0 && (
-        <div className="file-list">
-          {files.map((file, index) => (
-            <div key={index} className="file-item slide-in">
-              <div className="file-info">
-                <FileText size={16} className="text-secondary" />
-                <span className="file-name">{file.name}</span>
-              </div>
-              <button className="remove-btn" onClick={() => removeFile(index)}>
-                <X size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button
-        className="btn-primary"
-        onClick={generateManual}
-      >
-        Generate Manual
-      </button>
-    </div>
-  )
-
-  const renderProcessingStage = () => (
-    <div className="processing-stage fade-in">
-      <div className="spinner"></div>
-      <p className="loading-text fade-in-text">{loadingText}</p>
-      <button className="btn-secondary" onClick={cancelGeneration} style={{ marginTop: '1rem' }}>
-        Cancel
-      </button>
-    </div>
-  )
-
-  const renderResultStage = () => (
-    <div className="result-stage animate-slide-up">
-      <div className="manual-content">
-        <ReactMarkdown>{manual}</ReactMarkdown>
-      </div>
-      <button className="btn-secondary" onClick={resetApp}>
-        <RotateCcw size={16} />
-        New Manual
-      </button>
-    </div>
-  )
 
   return (
-    <div className="app-container">
-      {stage === 'input' && (
-        <>
-          <h1>Manual Generator</h1>
-          <p className="subtitle">Create clear, step-by-step guides instantly.</p>
-        </>
-      )}
+    <div className="container">
+      <h1>AI Manual Generator</h1>
+      <div className="input-group">
+        <input
+          type="text"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Enter topic (e.g., How to assemble a table)"
+        />
 
-      {stage === 'input' && renderInputStage()}
-      {stage === 'processing' && renderProcessingStage()}
-      {stage === 'result' && renderResultStage()}
-
-      {/* Overlays for Active Recording/Camera */}
-      {isRecording && (
-        <div className="recording-overlay">
-          <div className="recording-indicator"></div>
-          <span>Recording {recordingType}...</span>
-          <button onClick={stopRecording}>
-            <StopCircle fill="white" size={32} />
-          </button>
-        </div>
-      )}
-
-      {cameraActive && !isRecording && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'black', zIndex: 100 }}>
-          <div className="video-preview-container">
-            <video ref={videoRef} autoPlay muted playsInline />
-            <button className="capture-btn" onClick={takePhoto}></button>
+        <div className="media-controls">
+          <div className="file-inputs">
+            <label className="btn secondary">
+              Upload Files
+              <input
+                type="file"
+                multiple
+                onChange={handleFileChange}
+                accept="video/*,audio/*,image/*,.pdf,.txt"
+                style={{ display: 'none' }}
+              />
+            </label>
           </div>
-          <button
-            className="absolute top-4 right-4 text-white p-2"
-            style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'white' }}
-            onClick={stopMediaStream}
-          >
-            <X size={32} />
-          </button>
-        </div>
-      )}
 
-      {/* Hidden canvas for photo capture */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+          {!isRecording && !cameraActive && (
+            <>
+              <button className="btn secondary" onClick={startAudioRecording}>Record Audio</button>
+              <button className="btn secondary" onClick={startVideoRecording}>Record Video</button>
+              <button className="btn secondary" onClick={startCamera}>Take Photo</button>
+            </>
+          )}
+
+          {isRecording && (
+            <button className="btn danger" onClick={stopRecording}>
+              Stop Recording ({recordingType})
+            </button>
+          )}
+
+          {cameraActive && (
+            <div className="camera-controls">
+              <button className="btn primary" onClick={takePhoto}>Capture</button>
+              <button className="btn danger" onClick={stopMediaStream}>Cancel</button>
+            </div>
+          )}
+        </div>
+
+        {(isRecording && recordingType === 'video' || cameraActive) && (
+          <div className="video-preview">
+            <video ref={videoRef} autoPlay muted playsInline />
+          </div>
+        )}
+
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+        {files.length > 0 && (
+          <div className="file-list">
+            <h3>Attached Files:</h3>
+            <ul>
+              {files.map((file, index) => (
+                <li key={index}>
+                  {file.name} ({Math.round(file.size / 1024)} KB)
+                  <button className="btn-small danger" onClick={() => removeFile(index)}>X</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button className="btn primary main-action" onClick={generateManual} disabled={loading || !topic}>
+          {loading ? 'Generating...' : 'Generate Manual'}
+        </button>
+      </div>
+
+      <div className="manual-output">
+        {manual && <ReactMarkdown>{manual}</ReactMarkdown>}
+
+        {images.length > 0 && (
+          <div className="generated-images">
+            <h2>Generated Illustrations</h2>
+            <div className="image-grid">
+              {images.map((img, index) => (
+                img && <img key={index} src={img} alt={`Illustration ${index + 1}`} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

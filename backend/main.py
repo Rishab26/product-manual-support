@@ -1,11 +1,7 @@
-# main.py
 from fastapi import FastAPI, UploadFile, File, Form
 from typing import List
-from pydantic import BaseModel
-from agent import process_media, structure_as_markdown
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-import uuid
+from agent import process_media, generate_images
 
 app = FastAPI()
 
@@ -17,46 +13,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ManualRequest(BaseModel):
-    topic: str
-
-
-class ManualResponse(BaseModel):
-    manual_markdown: str
-    manual_html: str
-    image_urls: list[str]
-
 
 @app.post("/generate-manual")
 async def generate_manual(
-        topic: str = Form(...),
-        files: List[UploadFile] = File(None),
-        generate_images: bool = Form(True)
+    topic: str = Form(...),
+    files: List[UploadFile] = File(None),
+    generate_images_bool: bool = Form(True)
 ):
     if files is None:
         files = []
 
-    # Generate manual
-    manual_text, manual_with_markers, image_urls = await process_media(
-        files, topic, generate_images
-    )
-    breakpoint()
-    # Convert to markdown
-    markdown = await structure_as_markdown(manual_text, image_urls)
-    breakpoint()
-    # Save markdown to temp file
-    file_id = str(uuid.uuid4())
-    md_path = f"/temp_uploads/manual_{file_id}.md"
+    # Generate manual text
+    manual_text = await process_media(files, topic)
 
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(markdown)
-    breakpoint()
-    return FileResponse(
-        md_path,
-        media_type="text/markdown",
-        filename="manual.md"
-    )
+    # Generate images if requested
+    images = []
+    if generate_images_bool:
+        images = await generate_images(manual_text)
 
+    return {
+        "markdown": manual_text,
+        "images": images  # Array of base64 data URLs
+    }
 
 
 @app.get("/health")
