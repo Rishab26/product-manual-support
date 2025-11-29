@@ -42,6 +42,10 @@ import os
 if os.path.exists("static"):
     app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
+    @app.get("/")
+    async def serve_root():
+        return FileResponse("static/index.html")
+
     @app.get("/{full_path:path}")
     async def catch_all(full_path: str):
         # Check if file exists in static root (e.g. favicon.ico)

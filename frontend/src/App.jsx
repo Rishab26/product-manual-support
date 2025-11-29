@@ -213,7 +213,6 @@ function App() {
 
     try {
       let response;
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
       const formData = new FormData()
       formData.append('topic', topic)
 
@@ -221,7 +220,7 @@ function App() {
         formData.append('files', file)
       })
 
-      response = await fetch(`${apiUrl}/generate-manual`, {
+      response = await fetch('/generate-manual', {
         method: 'POST',
         body: formData,
         signal: abortControllerRef.current.signal
