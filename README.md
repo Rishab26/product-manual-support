@@ -90,9 +90,11 @@ docker build -t manual-generator .
 docker run -p 8000:8000 -e PORT=8000 --env-file .env manual-generator
 ```
 
-4. Open your browser to `http://localhost:8000`
+4. Open your browser to `https://product-manual-support-9977463388.us-central1.run.app`
 
 ## 💡 Usage Tips
+
+Please note that the page will load a while as it generates images.
 
 ### For Best Results
 
