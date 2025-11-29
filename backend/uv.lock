@@ -2366,6 +2366,7 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
     { name = "uvicorn" },
 ]
 
@@ -2375,6 +2376,7 @@ requires-dist = [
     { name = "google-generativeai" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
     { name = "uvicorn" },
 ]
 

@@ -10,4 +10,5 @@ dependencies = [
     "pydantic-ai",
     "google-generativeai",
     "python-dotenv",
+    "python-multipart",
 ]
