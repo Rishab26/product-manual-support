@@ -1,12 +1,27 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import ReactMarkdown from 'react-markdown'
+import {
+  Mic,
+  Video,
+  Camera,
+  Upload,
+  X,
+  FileText,
+  ArrowRight,
+  RotateCcw,
+  StopCircle
+} from 'lucide-react'
 
 function App() {
+  // Stages: 'input', 'processing', 'result'
+  const [stage, setStage] = useState('input')
+
   const [topic, setTopic] = useState('')
   const [manual, setManual] = useState('')
-  const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState([])
+
+  // Media State
   const [isRecording, setIsRecording] = useState(false)
   const [recordingType, setRecordingType] = useState(null) // 'audio', 'video'
   const [cameraActive, setCameraActive] = useState(false)
@@ -17,8 +32,23 @@ function App() {
   const streamRef = useRef(null)
   const chunksRef = useRef([])
 
+  // Abort Controller for cancellation
+  const abortControllerRef = useRef(null)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopMediaStream()
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   const handleFileChange = (e) => {
-    setFiles(prev => [...prev, ...e.target.files])
+    if (e.target.files) {
+      setFiles(prev => [...prev, ...Array.from(e.target.files)])
+    }
   }
 
   const removeFile = (index) => {
@@ -90,8 +120,6 @@ function App() {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
-      setIsRecording(false)
-      setRecordingType(null)
     }
   }
 
@@ -121,10 +149,11 @@ function App() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
       canvas.toBlob((blob) => {
-        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
-        setFiles(prev => [...prev, file])
-        stopMediaStream() // Auto-close camera after photo
-        setCameraActive(false)
+        if (blob) {
+          const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+          setFiles(prev => [...prev, file])
+          stopMediaStream()
+        }
       }, 'image/jpeg')
     }
   }
@@ -143,42 +172,32 @@ function App() {
   }
 
   const generateManual = async () => {
-    setLoading(true)
+    if (!topic.trim()) {
+      alert('Please enter a topic to generate a manual.')
+      return
+    }
+
+    setStage('processing')
     setManual('')
+
+    // Create new AbortController
+    abortControllerRef.current = new AbortController()
+
     try {
       let response;
-      if (files.length > 0) {
-        const formData = new FormData()
-        formData.append('topic', topic)
-        files.forEach(file => {
-          formData.append('files', file)
-        })
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const formData = new FormData()
+      formData.append('topic', topic)
 
-        // Fixed endpoint URL
-        response = await fetch('/generate-manual', {
-          method: 'POST',
-          body: formData,
-        })
-      } else {
-        response = await fetch('/generate-manual', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json', // Note: Backend expects Form data for files, but this branch is for topic only
-            // However, the backend endpoint is defined as Form(...) for topic and File(None) for files.
-            // Sending JSON might fail if the backend strictly expects Form data.
-            // Let's switch to FormData for consistency even without files.
-          },
-          // body: JSON.stringify({ topic }), 
-        })
+      files.forEach(file => {
+        formData.append('files', file)
+      })
 
-        // Correct approach for the unified endpoint:
-        const formData = new FormData()
-        formData.append('topic', topic)
-        response = await fetch('/generate-manual', {
-          method: 'POST',
-          body: formData,
-        })
-      }
+      response = await fetch(`${apiUrl}/generate-manual`, {
+        method: 'POST',
+        body: formData,
+        signal: abortControllerRef.current.signal
+      })
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -186,91 +205,174 @@ function App() {
 
       const data = await response.json()
       setManual(data.manual)
+      setStage('result')
     } catch (error) {
-      console.error('Error generating manual:', error)
-      setManual('Error generating manual. Please try again.')
+      if (error.name === 'AbortError') {
+        console.log('Generation cancelled')
+        // Stay in input stage or handle as needed, but we usually reset to input on cancel
+        setStage('input')
+      } else {
+        console.error('Error generating manual:', error)
+        alert('Error generating manual. Please try again.')
+        setStage('input')
+      }
     } finally {
-      setLoading(false)
+      abortControllerRef.current = null
     }
   }
 
-  return (
-    <div className="container">
-      <h1>AI Manual Generator</h1>
-      <div className="input-group">
+  const cancelGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+  }
+
+  const resetApp = () => {
+    setTopic('')
+    setFiles([])
+    setManual('')
+    setStage('input')
+  }
+
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      generateManual()
+    }
+  }
+
+  // Render Helpers
+  const renderInputStage = () => (
+    <div className="input-stage fade-in">
+      <div className="topic-input-container">
         <input
           type="text"
+          className="topic-input"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="Enter topic (e.g., How to assemble a table)"
+          onKeyDown={handleKeyDown}
+          placeholder="What do you want to learn?"
+          autoFocus
         />
+      </div>
 
-        <div className="media-controls">
-          <div className="file-inputs">
-            <label className="btn secondary">
-              Upload Files
-              <input
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                accept="video/*,audio/*,image/*,.pdf,.txt"
-                style={{ display: 'none' }}
-              />
-            </label>
-          </div>
+      <div className="media-grid">
+        <label className="media-btn">
+          <Upload />
+          <span>Upload</span>
+          <input
+            type="file"
+            multiple
+            onChange={handleFileChange}
+            accept="video/*,audio/*,image/*,.pdf,.txt"
+            style={{ display: 'none' }}
+          />
+        </label>
 
-          {!isRecording && !cameraActive && (
-            <>
-              <button className="btn secondary" onClick={startAudioRecording}>Record Audio</button>
-              <button className="btn secondary" onClick={startVideoRecording}>Record Video</button>
-              <button className="btn secondary" onClick={startCamera}>Take Photo</button>
-            </>
-          )}
+        <button className="media-btn" onClick={startAudioRecording}>
+          <Mic />
+          <span>Record Audio</span>
+        </button>
 
-          {isRecording && (
-            <button className="btn danger" onClick={stopRecording}>
-              Stop Recording ({recordingType})
-            </button>
-          )}
+        <button className="media-btn" onClick={startVideoRecording}>
+          <Video />
+          <span>Record Video</span>
+        </button>
 
-          {cameraActive && (
-            <div className="camera-controls">
-              <button className="btn primary" onClick={takePhoto}>Capture</button>
-              <button className="btn danger" onClick={stopMediaStream}>Cancel</button>
-            </div>
-          )}
-        </div>
-
-        {(isRecording && recordingType === 'video' || cameraActive) && (
-          <div className="video-preview">
-            <video ref={videoRef} autoPlay muted playsInline />
-          </div>
-        )}
-
-        {/* Hidden canvas for photo capture */}
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-        {files.length > 0 && (
-          <div className="file-list">
-            <h3>Attached Files:</h3>
-            <ul>
-              {files.map((file, index) => (
-                <li key={index}>
-                  {file.name} ({Math.round(file.size / 1024)} KB)
-                  <button className="btn-small danger" onClick={() => removeFile(index)}>X</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <button className="btn primary main-action" onClick={generateManual} disabled={loading || !topic}>
-          {loading ? 'Generating...' : 'Generate Manual'}
+        <button className="media-btn" onClick={startCamera}>
+          <Camera />
+          <span>Take Photo</span>
         </button>
       </div>
-      <div className="manual-output">
-        {manual && <ReactMarkdown>{manual}</ReactMarkdown>}
+
+      {files.length > 0 && (
+        <div className="file-list">
+          {files.map((file, index) => (
+            <div key={index} className="file-item slide-in">
+              <div className="file-info">
+                <FileText size={16} className="text-secondary" />
+                <span className="file-name">{file.name}</span>
+              </div>
+              <button className="remove-btn" onClick={() => removeFile(index)}>
+                <X size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        className="btn-primary"
+        onClick={generateManual}
+      >
+        Generate Manual
+      </button>
+    </div>
+  )
+
+  const renderProcessingStage = () => (
+    <div className="processing-stage fade-in">
+      <div className="spinner"></div>
+      <p>Analyzing your request and generating the manual...</p>
+      <button className="btn-secondary" onClick={cancelGeneration} style={{ marginTop: '1rem' }}>
+        Cancel
+      </button>
+    </div>
+  )
+
+  const renderResultStage = () => (
+    <div className="result-stage fade-in">
+      <div className="manual-content">
+        <ReactMarkdown>{manual}</ReactMarkdown>
       </div>
+      <button className="btn-secondary" onClick={resetApp}>
+        <RotateCcw size={16} />
+        Start Over
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="app-container">
+      {stage === 'input' && (
+        <>
+          <h1>Manual Generator</h1>
+          <p className="subtitle">Create clear, step-by-step guides instantly.</p>
+        </>
+      )}
+
+      {stage === 'input' && renderInputStage()}
+      {stage === 'processing' && renderProcessingStage()}
+      {stage === 'result' && renderResultStage()}
+
+      {/* Overlays for Active Recording/Camera */}
+      {isRecording && (
+        <div className="recording-overlay">
+          <div className="recording-indicator"></div>
+          <span>Recording {recordingType}...</span>
+          <button onClick={stopRecording}>
+            <StopCircle fill="white" size={32} />
+          </button>
+        </div>
+      )}
+
+      {cameraActive && !isRecording && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'black', zIndex: 100 }}>
+          <div className="video-preview-container">
+            <video ref={videoRef} autoPlay muted playsInline />
+            <button className="capture-btn" onClick={takePhoto}></button>
+          </div>
+          <button
+            className="absolute top-4 right-4 text-white p-2"
+            style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'white' }}
+            onClick={stopMediaStream}
+          >
+            <X size={32} />
+          </button>
+        </div>
+      )}
+
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   )
 }
