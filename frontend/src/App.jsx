@@ -200,8 +200,8 @@ function App() {
   }
 
   const generateManual = async () => {
-    if (!topic.trim()) {
-      alert('Please enter a topic to generate a manual.')
+    if (!topic.trim() && files.length === 0) {
+      alert('Please enter a topic or upload/record media to generate a manual.')
       return
     }
 
