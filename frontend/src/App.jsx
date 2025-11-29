@@ -13,6 +13,19 @@ import {
   StopCircle
 } from 'lucide-react'
 
+const LOADING_SENTENCES = [
+  "Consulting the oracle of knowledge...",
+  "Summoning the spirits of clarity...",
+  "Weaving words into wisdom...",
+  "Decoding the matrix of instructions...",
+  "Polishing the gems of guidance...",
+  "Constructing the pillars of understanding...",
+  "Filtering the noise, keeping the signal...",
+  "Translating thoughts into actions...",
+  "Harmonizing the elements of the manual...",
+  "Preparing the blueprint for success..."
+]
+
 function App() {
   // Stages: 'input', 'processing', 'result'
   const [stage, setStage] = useState('input')
@@ -20,6 +33,7 @@ function App() {
   const [topic, setTopic] = useState('')
   const [manual, setManual] = useState('')
   const [files, setFiles] = useState([])
+  const [loadingText, setLoadingText] = useState(LOADING_SENTENCES[0])
 
   // Media State
   const [isRecording, setIsRecording] = useState(false)
@@ -44,6 +58,20 @@ function App() {
       }
     }
   }, [])
+
+  // Cycle loading sentences
+  useEffect(() => {
+    let interval;
+    if (stage === 'processing') {
+      setLoadingText(LOADING_SENTENCES[0])
+      let index = 0;
+      interval = setInterval(() => {
+        index = (index + 1) % LOADING_SENTENCES.length;
+        setLoadingText(LOADING_SENTENCES[index]);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [stage]);
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -312,7 +340,7 @@ function App() {
   const renderProcessingStage = () => (
     <div className="processing-stage fade-in">
       <div className="spinner"></div>
-      <p>Analyzing your request and generating the manual...</p>
+      <p className="loading-text fade-in-text">{loadingText}</p>
       <button className="btn-secondary" onClick={cancelGeneration} style={{ marginTop: '1rem' }}>
         Cancel
       </button>
@@ -320,13 +348,13 @@ function App() {
   )
 
   const renderResultStage = () => (
-    <div className="result-stage fade-in">
+    <div className="result-stage animate-slide-up">
       <div className="manual-content">
         <ReactMarkdown>{manual}</ReactMarkdown>
       </div>
       <button className="btn-secondary" onClick={resetApp}>
         <RotateCcw size={16} />
-        Start Over
+        New Manual
       </button>
     </div>
   )
