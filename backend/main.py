@@ -42,6 +42,14 @@ import os
 if os.path.exists("static"):
     app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
+# Mount the generated images directory
+if os.path.exists("generated_images"):
+    app.mount("/images", StaticFiles(directory="generated_images"), name="images")
+elif not os.path.exists("generated_images"):
+    # Create the directory if it doesn't exist
+    os.makedirs("generated_images", exist_ok=True)
+    app.mount("/images", StaticFiles(directory="generated_images"), name="images")
+
     @app.get("/")
     async def serve_root():
         return FileResponse("static/index.html")

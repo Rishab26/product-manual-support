@@ -346,10 +346,84 @@ function App() {
     </div>
   )
 
+  // Custom component to render manual in two-column layout
+  const ManualRenderer = ({ markdown }) => {
+    // Parse markdown into sections based on h2 headers
+    const sections = []
+    const lines = markdown.split('\n')
+    let currentSection = { title: '', content: [], image: null }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+
+      // Check if this is an h2 header (section start)
+      if (line.startsWith('## ')) {
+        // Save previous section if it has content
+        if (currentSection.title || currentSection.content.length > 0) {
+          sections.push({ ...currentSection })
+        }
+        // Start new section
+        currentSection = {
+          title: line.replace('## ', ''),
+          content: [],
+          image: null
+        }
+      }
+      // Check if this is an image
+      else if (line.match(/!\[.*\]\(.*\)/)) {
+        const match = line.match(/!\[(.*)\]\((.*)\)/)
+        if (match) {
+          currentSection.image = {
+            alt: match[1],
+            src: match[2]
+          }
+        }
+      }
+      // Regular content
+      else if (line.trim()) {
+        currentSection.content.push(line)
+      }
+    }
+
+    // Don't forget the last section
+    if (currentSection.title || currentSection.content.length > 0) {
+      sections.push(currentSection)
+    }
+
+    return (
+      <div>
+        {sections.map((section, index) => (
+          <div key={index} className="manual-section">
+            <div className="manual-section-text">
+              {section.title && <h2>{section.title}</h2>}
+              <ReactMarkdown>{section.content.join('\n')}</ReactMarkdown>
+            </div>
+            <div className="manual-section-image">
+              {section.image ? (
+                <img
+                  src={section.image.src}
+                  alt={section.image.alt}
+                />
+              ) : (
+                <div style={{
+                  color: 'var(--text-tertiary)',
+                  textAlign: 'center',
+                  padding: '2rem'
+                }}>
+                  No image for this section
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   const renderResultStage = () => (
     <div className="result-stage animate-slide-up">
       <div className="manual-content">
-        <ReactMarkdown>{manual}</ReactMarkdown>
+        <ManualRenderer markdown={manual} />
       </div>
       <button className="btn-secondary" onClick={resetApp}>
         <RotateCcw size={16} />
