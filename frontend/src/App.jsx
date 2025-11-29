@@ -155,12 +155,12 @@ function App() {
         })
 
         // Fixed endpoint URL
-        response = await fetch('http://127.0.0.1:8000/generate-manual', {
+        response = await fetch('/generate-manual', {
           method: 'POST',
           body: formData,
         })
       } else {
-        response = await fetch('http://127.0.0.1:8000/generate-manual', {
+        response = await fetch('/generate-manual', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json', // Note: Backend expects Form data for files, but this branch is for topic only
@@ -174,7 +174,7 @@ function App() {
         // Correct approach for the unified endpoint:
         const formData = new FormData()
         formData.append('topic', topic)
-        response = await fetch('http://127.0.0.1:8000/generate-manual', {
+        response = await fetch('/generate-manual', {
           method: 'POST',
           body: formData,
         })

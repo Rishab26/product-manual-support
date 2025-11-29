@@ -11,7 +11,7 @@ FROM python:3.13-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 ENV PYTHONUNBUFFERED=True
-ENV PORT=8080
+ENV PORT=8000
 
 WORKDIR /app
 
