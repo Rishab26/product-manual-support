@@ -18,3 +18,12 @@ gcloud run deploy product-manual-support \
   --source . \
   --region us-central1 \
   --allow-unauthenticated
+
+## or build and then deploy
+
+gcloud builds submit --tag us-central1-docker.pkg.dev/product-manual-support/flask-app-repo/flask-app:latest .
+
+gcloud run deploy flask-app \
+  --image us-central1-docker.pkg.dev/product-manual-support/flask-app-repo/flask-app:latest \
+  --region us-central1 \
+  --allow-unauthenticated
