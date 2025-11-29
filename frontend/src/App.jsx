@@ -398,22 +398,24 @@ function App() {
               {section.title && <h2>{section.title}</h2>}
               <ReactMarkdown>{section.content.join('\n')}</ReactMarkdown>
             </div>
-            <div className="manual-section-image">
-              {section.image ? (
-                <img
-                  src={section.image.src}
-                  alt={section.image.alt}
-                />
-              ) : (
-                <div style={{
-                  color: 'var(--text-tertiary)',
-                  textAlign: 'center',
-                  padding: '2rem'
-                }}>
-                  No image for this section
-                </div>
-              )}
-            </div>
+            {index !== 0 && (
+              <div className="manual-section-image">
+                {section.image ? (
+                  <img
+                    src={section.image.src}
+                    alt={section.image.alt}
+                  />
+                ) : (
+                  <div style={{
+                    color: 'var(--text-tertiary)',
+                    textAlign: 'center',
+                    padding: '2rem'
+                  }}>
+                    No image for this section
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
