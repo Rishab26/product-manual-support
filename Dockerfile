@@ -1,26 +1,31 @@
-# Use the official lightweight Python image.
-# https://hub.docker.com/_/python
-FROM python:3.13-slim
+# Stage 1: Build the frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
-# Copy uv from the official image for fast dependency installation
+# Stage 2: Setup the backend
+FROM python:3.13-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Allow statements and log messages to immediately appear in the Knative logs
-ENV PYTHONUNBUFFERED True
+ENV PYTHONUNBUFFERED=True
+ENV PORT=8000
 
-# Copy local code to the container image.
-ENV APP_HOME /app
-WORKDIR $APP_HOME
+WORKDIR /app
 
-# Copy dependency definitions
-COPY pyproject.toml uv.lock* ./
+# Copy backend dependencies
+COPY backend/pyproject.toml backend/uv.lock ./
 
-# Install production dependencies using uv.
-# We use --system to install into the container's system python.
+# Install dependencies
 RUN uv pip install --system --no-cache -r pyproject.toml
 
-# Copy the rest of the application code
-COPY . ./
+# Copy backend code
+COPY backend/ ./
 
-# Run the web service on container startup using gunicorn
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
+# Copy built frontend assets to static directory
+COPY --from=frontend-builder /app/frontend/dist ./static
+
+# Run the application
+CMD exec uvicorn main:app --host 0.0.0.0 --port $PORT

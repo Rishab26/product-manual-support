@@ -121,6 +121,9 @@ async def process_media(files: list[UploadFile], prompt: str, generate_images: b
 
     # Run agent with files and prompt
     print("Running agent with media...")
+    if not prompt and media_content:
+        prompt = "Create a manual based on the provided media."
+    
     result = await manual_agent.run([prompt, *media_content])
     manual_text = result.output
 
