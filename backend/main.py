@@ -31,3 +31,21 @@ async def generate_manual(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+# Serve static files
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# Mount the static directory (frontend build)
+# We assume the frontend build is copied to a 'static' directory in the container
+if os.path.exists("static"):
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        # Check if file exists in static root (e.g. favicon.ico)
+        if os.path.isfile(f"static/{full_path}"):
+             return FileResponse(f"static/{full_path}")
+        # Otherwise return index.html for SPA routing
+        return FileResponse("static/index.html")

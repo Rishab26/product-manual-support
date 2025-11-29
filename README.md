@@ -10,20 +10,20 @@ Aim is to generate product manuals.
 #### docker run
 
 docker build -t product-manual-support .
-docker run -p 8080:8080 -e PORT=8080 flask-app
+docker run -p 8080:8080 -e PORT=8080 product-manual-support
 
 #### deploy
 
 gcloud run deploy product-manual-support \
   --source . \
   --region us-central1 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
 
 ## or build and then deploy
 
-gcloud builds submit --tag us-central1-docker.pkg.dev/product-manual-support/flask-app-repo/flask-app:latest .
+gcloud builds submit --tag us-central1-docker.pkg.dev/product-manual-support/product-manual-repo/product-manual-support:latest .
 
-gcloud run deploy flask-app \
-  --image us-central1-docker.pkg.dev/product-manual-support/flask-app-repo/flask-app:latest \
+gcloud run deploy product-manual-support \
+  --image us-central1-docker.pkg.dev/product-manual-support/product-manual-repo/product-manual-support:latest \
   --region us-central1 \
   --allow-unauthenticated
